@@ -1,0 +1,9 @@
+[package]
+name = "model-mem"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+kernel-model-lib = { git = "https://github.com/LJxTHUCS/Kernel-Model-Lib" }
+rand = "0.8.5"
+bitflags = "2.6.0"
