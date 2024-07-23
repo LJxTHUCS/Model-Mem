@@ -104,6 +104,12 @@ impl RiscvPTE for Sv57PTE {
     }
 }
 
+/// A trait for generic mem reading.
+pub trait ReadMem {
+    /// Read memory from a virtual address.
+    fn read(&self, vaddr: u64, buf: &mut [u8]);
+}
+
 /// Virtual page: a virtual page number and its mapping flags.
 #[derive(Debug)]
 pub struct VirtPage {
@@ -112,32 +118,51 @@ pub struct VirtPage {
 }
 
 /// Read Sv39 page table and collect all virtual pages into a vector
-pub fn read_sv39_page_table(root_addr: usize) -> Vec<VirtPage> {
+pub fn read_sv39_page_table<R>(root_addr: u64, reader: &R) -> Vec<VirtPage>
+where
+    R: ReadMem,
+{
     let mut vpages = Vec::new();
-    read_page_table_recursive(root_addr as *const Sv39PTE, 0, 2, &mut vpages);
+    read_page_table_recursive(root_addr as *const Sv39PTE, reader, 0, 2, &mut vpages);
     vpages
 }
 
 /// Read Sv48 page table and collect all virtual pages into a vector
-pub fn read_sv48_page_table(root_addr: usize) -> Vec<VirtPage> {
+pub fn read_sv48_page_table<R>(root_addr: u64, reader: &R) -> Vec<VirtPage>
+where
+    R: ReadMem,
+{
     let mut vpages = Vec::new();
-    read_page_table_recursive(root_addr as *const Sv48PTE, 0, 3, &mut vpages);
+    read_page_table_recursive(root_addr as *const Sv48PTE, reader, 0, 3, &mut vpages);
     vpages
 }
 
 /// Read Sv57 page table and collect all virtual pages into a vector
-pub fn read_sv57_page_table(root_addr: usize) -> Vec<VirtPage> {
+pub fn read_sv57_page_table<R>(root_addr: u64, reader: &R) -> Vec<VirtPage>
+where
+    R: ReadMem,
+{
     let mut vpages = Vec::new();
-    read_page_table_recursive(root_addr as *const Sv57PTE, 0, 4, &mut vpages);
+    read_page_table_recursive(root_addr as *const Sv57PTE, reader, 0, 4, &mut vpages);
     vpages
 }
 
 /// Read page table recursively. Same logic shared by Sv39, Sv48 and Sv57.
-fn read_page_table_recursive<T>(page: *const T, vpn: u64, level: u64, vpages: &mut Vec<VirtPage>)
-where
+fn read_page_table_recursive<T, R>(
+    page: *const T,
+    reader: &R,
+    vpn: u64,
+    level: u64,
+    vpages: &mut Vec<VirtPage>,
+) where
     T: RiscvPTE,
+    R: ReadMem,
 {
-    let page = unsafe { core::slice::from_raw_parts(page, RV_PAGE_SIZE / size_of::<T>()) };
+    let mut buf = [0u8; RV_PAGE_SIZE];
+    reader.read(page as u64, &mut buf);
+    let page = unsafe {
+        core::slice::from_raw_parts(buf.as_ptr() as *const T, RV_PAGE_SIZE / size_of::<T>())
+    };
     for (i, pte) in page.iter().enumerate() {
         if pte.valid() {
             // PTE is leaf <=> level == 0
@@ -154,7 +179,7 @@ where
             } else {
                 // Inner
                 let next_page = pte.ppn() * RV_PAGE_SIZE as u64;
-                read_page_table_recursive(next_page as *const T, vpn, level - 1, vpages);
+                read_page_table_recursive(next_page as *const T, reader, vpn, level - 1, vpages);
             }
         }
     }
