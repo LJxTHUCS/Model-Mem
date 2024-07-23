@@ -106,8 +106,8 @@ impl RiscvPTE for Sv57PTE {
 
 /// A trait for generic mem reading.
 pub trait ReadMem {
-    /// Read memory from a virtual address.
-    fn read(&self, vaddr: u64, buf: &mut [u8]);
+    /// Read memory from a physical address.
+    fn read(&self, paddr: u64, buf: &mut [u8]);
 }
 
 /// Virtual page: a virtual page number and its mapping flags.

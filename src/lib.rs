@@ -9,6 +9,6 @@ pub type MappingFlags = page_table::RiscvPTEFlags;
 pub use command::{Brk, Mmap, MmapFlags, Mprotect, Munmap, ProtFlags};
 pub use linux_error::LinuxError;
 pub use page_table::{
-    read_sv39_page_table, read_sv48_page_table, read_sv57_page_table, segment_vpages,
+    read_sv39_page_table, read_sv48_page_table, read_sv57_page_table, segment_vpages, ReadMem
 };
 pub use user_space::{UserSpace, UserSpaceConfig};
