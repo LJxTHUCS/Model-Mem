@@ -512,8 +512,8 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "libafl"
-version = "0.13.1"
-source = "git+https://github.com/saibotk/LibAFL?branch=add-qemu-riscv-support#e2beb6489db339279707c4462cce692af22e6188"
+version = "0.13.0"
+source = "git+https://github.com/nine-point-eight-p/LibAFL?branch=libafl_qemu_riscv#e6c694860af9c3ce24e42dfcb851bcb0015e7acb"
 dependencies = [
  "ahash",
  "backtrace",
@@ -545,8 +545,8 @@ dependencies = [
 
 [[package]]
 name = "libafl_bolts"
-version = "0.13.1"
-source = "git+https://github.com/saibotk/LibAFL?branch=add-qemu-riscv-support#e2beb6489db339279707c4462cce692af22e6188"
+version = "0.13.0"
+source = "git+https://github.com/nine-point-eight-p/LibAFL?branch=libafl_qemu_riscv#e6c694860af9c3ce24e42dfcb851bcb0015e7acb"
 dependencies = [
  "ahash",
  "backtrace",
@@ -574,8 +574,8 @@ dependencies = [
 
 [[package]]
 name = "libafl_derive"
-version = "0.13.1"
-source = "git+https://github.com/saibotk/LibAFL?branch=add-qemu-riscv-support#e2beb6489db339279707c4462cce692af22e6188"
+version = "0.13.0"
+source = "git+https://github.com/nine-point-eight-p/LibAFL?branch=libafl_qemu_riscv#e6c694860af9c3ce24e42dfcb851bcb0015e7acb"
 dependencies = [
  "quote",
  "syn 2.0.72",
@@ -583,8 +583,8 @@ dependencies = [
 
 [[package]]
 name = "libafl_qemu"
-version = "0.13.1"
-source = "git+https://github.com/saibotk/LibAFL?branch=add-qemu-riscv-support#e2beb6489db339279707c4462cce692af22e6188"
+version = "0.13.0"
+source = "git+https://github.com/nine-point-eight-p/LibAFL?branch=libafl_qemu_riscv#e6c694860af9c3ce24e42dfcb851bcb0015e7acb"
 dependencies = [
  "addr2line 0.23.0",
  "bindgen",
@@ -623,8 +623,8 @@ dependencies = [
 
 [[package]]
 name = "libafl_qemu_build"
-version = "0.13.1"
-source = "git+https://github.com/saibotk/LibAFL?branch=add-qemu-riscv-support#e2beb6489db339279707c4462cce692af22e6188"
+version = "0.13.0"
+source = "git+https://github.com/nine-point-eight-p/LibAFL?branch=libafl_qemu_riscv#e6c694860af9c3ce24e42dfcb851bcb0015e7acb"
 dependencies = [
  "bindgen",
  "cc",
@@ -639,8 +639,8 @@ dependencies = [
 
 [[package]]
 name = "libafl_qemu_sys"
-version = "0.13.1"
-source = "git+https://github.com/saibotk/LibAFL?branch=add-qemu-riscv-support#e2beb6489db339279707c4462cce692af22e6188"
+version = "0.13.0"
+source = "git+https://github.com/nine-point-eight-p/LibAFL?branch=libafl_qemu_riscv#e6c694860af9c3ce24e42dfcb851bcb0015e7acb"
 dependencies = [
  "libafl_qemu_build",
  "libc",
@@ -653,8 +653,8 @@ dependencies = [
 
 [[package]]
 name = "libafl_targets"
-version = "0.13.1"
-source = "git+https://github.com/saibotk/LibAFL?branch=add-qemu-riscv-support#e2beb6489db339279707c4462cce692af22e6188"
+version = "0.13.0"
+source = "git+https://github.com/nine-point-eight-p/LibAFL?branch=libafl_qemu_riscv#e6c694860af9c3ce24e42dfcb851bcb0015e7acb"
 dependencies = [
  "bindgen",
  "cc",
