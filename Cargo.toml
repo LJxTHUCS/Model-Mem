@@ -7,4 +7,7 @@ edition = "2021"
 kernel-model-lib = { git = "https://github.com/LJxTHUCS/Kernel-Model-Lib" }
 rand = "0.8.5"
 bitflags = "2.6.0"
-libafl_qemu = { path = "/home/patrickli/os/LibAFL/libafl_qemu/", features = ["riscv64", "systemmode"] } # TODO: Replace when RISCV is supported
+libafl_qemu = { git = "https://github.com/saibotk/LibAFL", branch = "add-qemu-riscv-support", features = [
+    "riscv64",
+    "systemmode",
+] } # TODO: Replace when RISCV is supported in original repo
