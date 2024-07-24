@@ -19,7 +19,11 @@ impl Command<UserSpace> for Brk {
         if self.addr > state.config.heap_bottom
             && self.addr <= state.config.heap_bottom + state.config.max_heap_size
         {
-            // TODO: change mapping regions
+            for seg in state.segments.iter_mut() {
+                if seg.left == state.config.heap_bottom {
+                    seg.right = self.addr;
+                }
+            }
             state.config.heap_top = self.addr;
             Ok(0)
         } else {
@@ -107,27 +111,31 @@ bitflags! {
 
 impl Command<UserSpace> for Mmap {
     fn execute(&self, state: &mut UserSpace) -> ExecutionResult {
-        // Check alignment
-        if !check_align(self.addr, state.config.page_size)
-            || !check_align(self.len, state.config.page_size)
-        {
-            return Err(linux_err!(EINVAL));
-        }
         // Check flags
         let shared = self.flags.contains(MmapFlags::MAP_SHARED);
         let private = self.flags.contains(MmapFlags::MAP_PRIVATE);
         if !shared && !private {
             return Err(linux_err!(EINVAL));
         }
-        // Check if fixed
+        // Check fixed
         let fixed = self.flags.contains(MmapFlags::MAP_FIXED);
-        if fixed && (self.addr < state.config.ustart || self.addr + self.len > state.config.uend) {
-            return Err(linux_err!(EINVAL));
+        if fixed {
+            // If `fixed`, addr must always be aligned to page size
+            if !check_align(self.addr, state.config.page_size) {
+                return Err(linux_err!(EINVAL));
+            }
+            // addr must be in the user space
+            if self.addr < state.config.ustart || self.addr + self.len >= state.config.uend {
+                return Err(linux_err!(ENOMEM));
+            }
         }
+        // Align addr and len
+        let addr = floor(self.addr, state.config.page_size);
+        let len = ceil(self.len, state.config.page_size);
         // Handle fixed and non-fixed cases
         if fixed {
             // Split overlapped intervals
-            let new = Interval::new(self.addr, self.addr + self.len, self.prot.into());
+            let new = Interval::new(addr, addr + len, self.prot.into());
             let mut new_owned = Vec::new();
             // Split overlapped intervals and reinsert them
             for seg in state.segments.iter() {
@@ -135,27 +143,27 @@ impl Command<UserSpace> for Mmap {
             }
             new_owned.push(new);
             state.segments = ValueList(new_owned);
-            Ok(self.addr)
+            Ok(addr)
         } else {
             // Find free intervals
             state.segments.sort_by(|a, b| a.left.cmp(&b.left));
             let mut cur_left = core::cmp::max(state.config.ustart, self.addr);
             for interval in state.segments.iter() {
-                if cur_left + self.len <= interval.left {
+                if cur_left + len <= interval.left {
                     break;
                 }
                 cur_left = interval.right;
             }
             // Check if not reach upper bound
-            if cur_left + self.len <= state.config.uend {
-                let new = Interval::new(cur_left, cur_left + self.len, self.prot.into());
-                state.segments.push(new);
-                Ok(cur_left)
-            } else {
-                Err(linux_err!(ENOMEM))
+            if cur_left + len > state.config.uend {
+                return Err(linux_err!(ENOMEM));
             }
+            let new = Interval::new(cur_left, cur_left + len, self.prot.into());
+            state.segments.push(new);
+            Ok(cur_left)
         }
     }
+
     fn stringify(&self) -> String {
         format!(
             "mmap({},{},{},{})",
@@ -180,29 +188,29 @@ pub struct Munmap {
 }
 
 impl Command<UserSpace> for Munmap {
-    fn stringify(&self) -> String {
-        format!("munmap({},{})", self.addr, self.len)
-    }
     fn execute(&self, state: &mut UserSpace) -> ExecutionResult {
         // Check alignment
-        if !check_align(self.addr, state.config.page_size)
-            || !check_align(self.len, state.config.page_size)
-        {
+        if !check_align(self.addr, state.config.page_size) {
             return Err(linux_err!(EINVAL));
         }
         // Check size
-        if self.addr < state.config.ustart || self.addr + self.len > state.config.uend {
+        if self.addr < state.config.ustart || self.addr + self.len >= state.config.uend {
             return Err(linux_err!(EINVAL));
         }
         // Align to page size
-        let unmapped = Interval::new(self.addr, self.addr + self.len, ProtFlags::RO.into());
+        let addr = floor(self.addr, state.config.page_size);
+        let len = ceil(self.len, state.config.page_size);
+        let unmapped = Interval::new(addr, addr + len, ProtFlags::RO.into());
         // Remove the interval
         let mut new_owned = Vec::new();
         for interval in state.segments.iter() {
             new_owned.extend(interval.subtract(&unmapped));
         }
         state.segments = ValueList(new_owned);
-        Ok(self.addr)
+        Ok(addr)
+    }
+    fn stringify(&self) -> String {
+        format!("munmap({},{})", self.addr, self.len)
     }
 }
 
@@ -222,4 +230,14 @@ pub struct Mprotect {
 /// Check if `value` is aligned to `alignment`.
 fn check_align(value: usize, alignment: usize) -> bool {
     value % alignment == 0
+}
+
+/// Floor `value` to the nearest multiple of `alignment`.
+fn floor(value: usize, alignment: usize) -> usize {
+    value / alignment * alignment
+}
+
+/// Ceil `value` to the nearest multiple of `alignment`.
+fn ceil(value: usize, alignment: usize) -> usize {
+    (value + alignment - 1) / alignment * alignment
 }
