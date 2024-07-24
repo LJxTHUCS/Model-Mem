@@ -1,4 +1,5 @@
 mod command;
+mod commander;
 mod linux_error;
 mod page_table;
 mod user_space;
@@ -7,6 +8,7 @@ mod user_space;
 pub type MappingFlags = page_table::RiscvPTEFlags;
 
 pub use command::{Brk, Mmap, MmapFlags, Mprotect, Munmap, ProtFlags};
+pub use commander::MemRandCommander;
 pub use linux_error::LinuxError;
 pub use page_table::{
     read_sv39_page_table, read_sv48_page_table, read_sv57_page_table, segment_vpages, ReadMem,
