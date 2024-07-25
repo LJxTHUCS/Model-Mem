@@ -96,8 +96,8 @@ lazy_static!(
         ustart: 0,
         text_rodata_sep: 0,
         rodata_rwdata_sep: 0,
-        heap_bottom: 0x1a000,
-        heap_top: 0x1d000,
+        heap_bottom: 0x1c000,
+        heap_top: 0x1c000,
         uend: 0,
         page_size: 4096,
         max_heap_size: 0x100000000,
@@ -106,10 +106,12 @@ lazy_static!(
 
 /// Random commander.
 static mut COMMANDER: MemRandCommander = MemRandCommander {
-    brk: true,
+    brk: false,
+    sbrk: true,
     mmap: false,
     munmap: false,
     brk_addr_range: (0x1b000, 0x29000),
+    sbrk_incr_range: (-0x2000, 0x2000),
     mmap_addr_range: (0, 0),
     mmap_len_range: (0, 0),
 };
@@ -137,6 +139,10 @@ static mut STEP: Step = Step::Init;
 /// 1. Init model state
 fn init(satp: u64) {
     MODEL_STATE.lock().unwrap().segments = ValueList(read_page_table(satp));
+    println!("Model state:");
+    unsafe {
+        PRINTER.print_state(&MODEL_STATE.lock().unwrap()).unwrap();
+    }
 }
 
 /// 1. Commander generate command.
@@ -160,12 +166,14 @@ fn check(satp: u64) {
     unsafe {
         let kernel_retv = TEST_PORT.receive_retv().unwrap() as isize;
         if kernel_retv != MODEL_RETV {
-            println!("Return value mismatch: {} != {}", kernel_retv, MODEL_RETV);
+            println!("\x1b[1;31mReturn value mismatch.\x1b[0m");
+            println!("Kernel return value: {}", kernel_retv);
+            println!("Model return value: {}", MODEL_RETV);
         }
         let mut kernel_state = UserSpace::default();
         kernel_state.segments = ValueList(read_page_table(satp));
         if !kernel_state.matches(&MODEL_STATE.lock().unwrap()) {
-            println!("Memory state mismatch");
+            println!("\x1b[1;31mMemory state mismatch.\x1b[0m");
             println!("Kernel state:");
             PRINTER.print_state(&kernel_state).unwrap();
             println!("Model state:");

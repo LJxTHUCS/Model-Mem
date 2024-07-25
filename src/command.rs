@@ -4,8 +4,8 @@ use crate::UserSpace;
 use bitflags::bitflags;
 use kernel_model_lib::{Command, ExecutionResult, Interval, ValueList};
 
-/// [`Brk`] change the location of the program break, which
-/// defines the end of the process's data segment.
+/// [`Brk`] and [`Sbrk] change the location of the program break,
+/// which defines the end of the process's data segment.
 ///
 /// Ref: https://man7.org/linux/man-pages/man2/brk.2.html
 #[derive(Debug)]
@@ -16,21 +16,16 @@ pub struct Brk {
 
 impl Command<UserSpace> for Brk {
     fn execute(&self, state: &mut UserSpace) -> ExecutionResult {
-        // println!("addr: {:#x}", self.addr);
-        // println!("heap_bottom: {:#x}", state.config.heap_bottom);
-        // println!("heap_top: {:#x}", state.config.heap_top);
-        // println!("max_heap_size: {:#x}", state.config.max_heap_size);
         if self.addr > state.config.heap_bottom
             && self.addr <= state.config.heap_bottom + state.config.max_heap_size
         {
-            let addr = ceil(self.addr, state.config.page_size);
             for seg in state.segments.iter_mut() {
-                if seg.left == state.config.heap_bottom {
-                    seg.right = addr;
+                if seg.right == ceil(state.config.heap_top, state.config.page_size) {
+                    seg.right = ceil(self.addr, state.config.page_size);
                     break;
                 }
             }
-            state.config.heap_top = addr;
+            state.config.heap_top = self.addr;
             Ok(0)
         } else {
             Err(linux_err!(ENOMEM))
@@ -38,6 +33,29 @@ impl Command<UserSpace> for Brk {
     }
     fn stringify(&self) -> String {
         format!("brk({})", self.addr)
+    }
+}
+
+/// Like `brk`, but return the old program break on success.
+///
+/// Ref: https://man7.org/linux/man-pages/man2/brk.2.html
+#[derive(Debug)]
+pub struct Sbrk {
+    /// The increment to the program break.
+    pub increment: isize,
+}
+
+impl Command<UserSpace> for Sbrk {
+    fn execute(&self, state: &mut UserSpace) -> ExecutionResult {
+        let old_brk = state.config.heap_top;
+        if self.increment == 0 {
+            return Ok(old_brk);
+        }
+        let addr = (old_brk as isize + self.increment) as usize;
+        Brk { addr }.execute(state).map(|_| old_brk)
+    }
+    fn stringify(&self) -> String {
+        format!("sbrk({})", self.increment)
     }
 }
 
