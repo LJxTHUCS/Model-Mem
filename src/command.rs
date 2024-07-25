@@ -16,15 +16,21 @@ pub struct Brk {
 
 impl Command<UserSpace> for Brk {
     fn execute(&self, state: &mut UserSpace) -> ExecutionResult {
+        // println!("addr: {:#x}", self.addr);
+        // println!("heap_bottom: {:#x}", state.config.heap_bottom);
+        // println!("heap_top: {:#x}", state.config.heap_top);
+        // println!("max_heap_size: {:#x}", state.config.max_heap_size);
         if self.addr > state.config.heap_bottom
             && self.addr <= state.config.heap_bottom + state.config.max_heap_size
         {
+            let addr = ceil(self.addr, state.config.page_size);
             for seg in state.segments.iter_mut() {
                 if seg.left == state.config.heap_bottom {
-                    seg.right = self.addr;
+                    seg.right = addr;
+                    break;
                 }
             }
-            state.config.heap_top = self.addr;
+            state.config.heap_top = addr;
             Ok(0)
         } else {
             Err(linux_err!(ENOMEM))

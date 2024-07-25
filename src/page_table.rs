@@ -185,6 +185,10 @@ fn read_page_table_recursive<T, R>(
     }
 }
 
+fn mask_flags(flags: RiscvPTEFlags) -> RiscvPTEFlags {
+    flags & !(RiscvPTEFlags::DIRTY | RiscvPTEFlags::ACCESSED)
+}
+
 /// Segment virtual pages into contiguous intervals.
 ///
 /// Note: `vpages` read from page table is already sorted by VPN.
@@ -193,17 +197,20 @@ pub fn segment_vpages(vpages: &Vec<VirtPage>) -> Vec<Interval<RiscvPTEFlags>> {
     let mut i = 0;
     while i < vpages.len() {
         let start = vpages[i].vpn;
-        let flags = vpages[i].flags;
+        let flags = mask_flags(vpages[i].flags);
         let mut end = start + 1;
         // Continuous pages with the same flags
-        while i < vpages.len() - 1 && vpages[i + 1].vpn == end && vpages[i + 1].flags == flags {
+        while i < vpages.len() - 1
+            && vpages[i + 1].vpn == end
+            && mask_flags(vpages[i + 1].flags) == flags
+        {
             end += 1;
             i += 1;
         }
         intervals.push(Interval::new(
             start as usize * RV_PAGE_SIZE,
             end as usize * RV_PAGE_SIZE,
-            vpages[i].flags,
+            flags,
         ));
         i += 1;
     }

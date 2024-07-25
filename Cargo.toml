@@ -4,10 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-kernel-model-lib = { git = "https://github.com/LJxTHUCS/Kernel-Model-Lib" }
+kernel-model-lib = { path = "../kernel-model-lib" }
 rand = "0.8.5"
 bitflags = "2.6.0"
 libafl_qemu = { git = "https://github.com/nine-point-eight-p/LibAFL", branch = "libafl_qemu_riscv", features = [
     "riscv64",
     "systemmode",
 ] } # TODO: Replace when RISCV is supported in original repo
+lazy_static = "1.5.0"
