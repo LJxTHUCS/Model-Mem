@@ -1,0 +1,3 @@
+[submodule "kernel/rCore-Tutorial-v3-model-mem"]
+	path = kernel/rCore-Tutorial-v3-model-mem
+	url = https://github.com/nine-point-eight-p/rCore-Tutorial-v3-model-mem.git

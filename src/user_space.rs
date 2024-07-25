@@ -8,6 +8,15 @@ pub struct UserSpace {
     pub config: Ignored<UserSpaceConfig>,
 }
 
+impl Default for UserSpace {
+    fn default() -> Self {
+        Self {
+            segments: ValueList(vec![]),
+            config: Ignored(UserSpaceConfig::default()),
+        }
+    }
+}
+
 impl UserSpace {
     pub const fn new(config: UserSpaceConfig) -> Self {
         Self {
@@ -17,7 +26,7 @@ impl UserSpace {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct UserSpaceConfig {
     /// Start address of user space
     pub ustart: usize,

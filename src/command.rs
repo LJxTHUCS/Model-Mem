@@ -4,8 +4,8 @@ use crate::UserSpace;
 use bitflags::bitflags;
 use kernel_model_lib::{Command, ExecutionResult, Interval, ValueList};
 
-/// [`Brk`] change the location of the program break, which
-/// defines the end of the process's data segment.
+/// [`Brk`] and [`Sbrk] change the location of the program break,
+/// which defines the end of the process's data segment.
 ///
 /// Ref: https://man7.org/linux/man-pages/man2/brk.2.html
 #[derive(Debug)]
@@ -20,8 +20,9 @@ impl Command<UserSpace> for Brk {
             && self.addr <= state.config.heap_bottom + state.config.max_heap_size
         {
             for seg in state.segments.iter_mut() {
-                if seg.left == state.config.heap_bottom {
-                    seg.right = self.addr;
+                if seg.right == ceil(state.config.heap_top, state.config.page_size) {
+                    seg.right = ceil(self.addr, state.config.page_size);
+                    break;
                 }
             }
             state.config.heap_top = self.addr;
@@ -32,6 +33,29 @@ impl Command<UserSpace> for Brk {
     }
     fn stringify(&self) -> String {
         format!("brk({})", self.addr)
+    }
+}
+
+/// Like `brk`, but return the old program break on success.
+///
+/// Ref: https://man7.org/linux/man-pages/man2/brk.2.html
+#[derive(Debug)]
+pub struct Sbrk {
+    /// The increment to the program break.
+    pub increment: isize,
+}
+
+impl Command<UserSpace> for Sbrk {
+    fn execute(&self, state: &mut UserSpace) -> ExecutionResult {
+        let old_brk = state.config.heap_top;
+        if self.increment == 0 {
+            return Ok(old_brk);
+        }
+        let addr = (old_brk as isize + self.increment) as usize;
+        Brk { addr }.execute(state).map(|_| old_brk)
+    }
+    fn stringify(&self) -> String {
+        format!("sbrk({})", self.increment)
     }
 }
 
@@ -143,10 +167,10 @@ impl Command<UserSpace> for Mmap {
             }
             new_owned.push(new);
             state.segments = ValueList(new_owned);
+            state.segments.sort_by(|a, b| a.left.cmp(&b.left));
             Ok(addr)
         } else {
             // Find free intervals
-            state.segments.sort_by(|a, b| a.left.cmp(&b.left));
             let mut cur_left = core::cmp::max(state.config.ustart, self.addr);
             for interval in state.segments.iter() {
                 if cur_left + len <= interval.left {
@@ -160,6 +184,7 @@ impl Command<UserSpace> for Mmap {
             }
             let new = Interval::new(cur_left, cur_left + len, self.prot.into());
             state.segments.push(new);
+            state.segments.sort_by(|a, b| a.left.cmp(&b.left));
             Ok(cur_left)
         }
     }

@@ -1,5 +1,5 @@
 use super::{
-    command::{Brk, Mmap, Munmap},
+    command::{Brk, Mmap, Munmap, Sbrk},
     MmapFlags, ProtFlags, UserSpace,
 };
 use kernel_model_lib::{Command, Commander, Error};
@@ -13,12 +13,16 @@ use rand::{
 pub struct MemRandCommander {
     /// Enable brk syscall.
     pub brk: bool,
+    /// Enable sbrk syscall.
+    pub sbrk: bool,
     /// Enable mmap syscall.
     pub mmap: bool,
     /// Enable munmap syscall.
     pub munmap: bool,
-    /// Addr range for brk syscall.
+    /// Addr range for brk.
     pub brk_addr_range: (usize, usize),
+    /// Increment range for sbrk.
+    pub sbrk_incr_range: (isize, isize),
     /// Addr range for mmap and munmap.
     pub mmap_addr_range: (usize, usize),
     /// Len range for mmap and munmap.
@@ -30,6 +34,12 @@ impl MemRandCommander {
     fn new_brk(&self, rng: &mut ThreadRng) -> Brk {
         Brk {
             addr: Uniform::new(self.brk_addr_range.0, self.brk_addr_range.1).sample(rng),
+        }
+    }
+    /// Generate a random sbrk command.
+    fn new_sbrk(&self, rng: &mut ThreadRng) -> Sbrk {
+        Sbrk {
+            increment: Uniform::new(self.sbrk_incr_range.0, self.sbrk_incr_range.1).sample(rng),
         }
     }
     /// Generate a random mmap command.
@@ -56,17 +66,21 @@ impl Commander<UserSpace> for MemRandCommander {
         if self.brk {
             choices.push(0);
         }
-        if self.mmap {
+        if self.sbrk {
             choices.push(1);
         }
-        if self.munmap {
+        if self.mmap {
             choices.push(2);
+        }
+        if self.munmap {
+            choices.push(3);
         }
         let mut rng = rand::thread_rng();
         Ok(match choices.choose(&mut rng).unwrap() {
             0 => Box::new(self.new_brk(&mut rng)),
-            1 => Box::new(self.new_mmap(&mut rng)),
-            2 => Box::new(self.new_munmap(&mut rng)),
+            1 => Box::new(self.new_sbrk(&mut rng)),
+            2 => Box::new(self.new_mmap(&mut rng)),
+            3 => Box::new(self.new_munmap(&mut rng)),
             _ => unreachable!(),
         })
     }
