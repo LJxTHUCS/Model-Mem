@@ -167,10 +167,10 @@ impl Command<UserSpace> for Mmap {
             }
             new_owned.push(new);
             state.segments = ValueList(new_owned);
+            state.segments.sort_by(|a, b| a.left.cmp(&b.left));
             Ok(addr)
         } else {
             // Find free intervals
-            state.segments.sort_by(|a, b| a.left.cmp(&b.left));
             let mut cur_left = core::cmp::max(state.config.ustart, self.addr);
             for interval in state.segments.iter() {
                 if cur_left + len <= interval.left {
@@ -184,6 +184,7 @@ impl Command<UserSpace> for Mmap {
             }
             let new = Interval::new(cur_left, cur_left + len, self.prot.into());
             state.segments.push(new);
+            state.segments.sort_by(|a, b| a.left.cmp(&b.left));
             Ok(cur_left)
         }
     }
