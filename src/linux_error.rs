@@ -1,5 +1,5 @@
 /// Linux specific error codes defined in `errno.h`.
-#[repr(i32)]
+#[repr(isize)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LinuxError {
     /// Operation not permitted
@@ -268,7 +268,7 @@ pub enum LinuxError {
 
 #[macro_export]
 macro_rules! linux_err {
-    ($code:ident) => {
-        kernel_model_lib::Error::ExecutionFail(crate::linux_error::LinuxError::$code as i32)
-    };
+    ($e:ident) => {
+        -(crate::LinuxError::$e as isize)
+    }
 }

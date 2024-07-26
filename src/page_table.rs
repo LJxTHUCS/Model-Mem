@@ -24,6 +24,9 @@ impl AbstractState for RiscvPTEFlags {
     fn matches(&self, other: &Self) -> bool {
         self.bits() == other.bits()
     }
+    fn update(&mut self, other: &Self) {
+        *self = *other
+    }
 }
 
 /// Common Riscv page table entry trait, for sv32, sv39, sv48 and sv57.

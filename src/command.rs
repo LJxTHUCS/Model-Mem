@@ -1,8 +1,12 @@
-use crate::linux_err;
-use crate::MappingFlags;
-use crate::UserSpace;
+use crate::{linux_err, MappingFlags, UserSpace};
 use bitflags::bitflags;
-use kernel_model_lib::{Command, ExecutionResult, Interval, ValueList};
+use kernel_model_lib::{Command, Interval, ValueList};
+
+// Syscall id
+pub const SYSCALL_BRK: u16 = 45;
+pub const SYSCALL_SBRK: u16 = 91;
+pub const SYSCALL_MMAP: u16 = 9;
+pub const SYSCALL_MUNMAP: u16 = 11;
 
 /// [`Brk`] and [`Sbrk] change the location of the program break,
 /// which defines the end of the process's data segment.
@@ -15,7 +19,7 @@ pub struct Brk {
 }
 
 impl Command<UserSpace> for Brk {
-    fn execute(&self, state: &mut UserSpace) -> ExecutionResult {
+    fn execute(&self, state: &mut UserSpace) -> isize {
         if self.addr > state.config.heap_bottom
             && self.addr <= state.config.heap_bottom + state.config.max_heap_size
         {
@@ -26,13 +30,16 @@ impl Command<UserSpace> for Brk {
                 }
             }
             state.config.heap_top = self.addr;
-            Ok(0)
+            0
         } else {
-            Err(linux_err!(ENOMEM))
+            linux_err!(ENOMEM)
         }
     }
-    fn stringify(&self) -> String {
-        format!("brk({})", self.addr)
+    fn serialize(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&SYSCALL_BRK.to_ne_bytes());
+        bytes.extend_from_slice(&self.addr.to_ne_bytes());
+        bytes
     }
 }
 
@@ -46,16 +53,24 @@ pub struct Sbrk {
 }
 
 impl Command<UserSpace> for Sbrk {
-    fn execute(&self, state: &mut UserSpace) -> ExecutionResult {
+    fn execute(&self, state: &mut UserSpace) -> isize {
         let old_brk = state.config.heap_top;
         if self.increment == 0 {
-            return Ok(old_brk);
+            return old_brk as isize;
         }
         let addr = (old_brk as isize + self.increment) as usize;
-        Brk { addr }.execute(state).map(|_| old_brk)
+        let res = Brk { addr }.execute(state);
+        if res < 0 {
+            res
+        } else {
+            old_brk as isize
+        }
     }
-    fn stringify(&self) -> String {
-        format!("sbrk({})", self.increment)
+    fn serialize(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&SYSCALL_SBRK.to_ne_bytes());
+        bytes.extend_from_slice(&self.increment.to_ne_bytes());
+        bytes
     }
 }
 
@@ -134,23 +149,23 @@ bitflags! {
 }
 
 impl Command<UserSpace> for Mmap {
-    fn execute(&self, state: &mut UserSpace) -> ExecutionResult {
+    fn execute(&self, state: &mut UserSpace) -> isize {
         // Check flags
         let shared = self.flags.contains(MmapFlags::MAP_SHARED);
         let private = self.flags.contains(MmapFlags::MAP_PRIVATE);
         if !shared && !private {
-            return Err(linux_err!(EINVAL));
+            return linux_err!(EINVAL);
         }
         // Check fixed
         let fixed = self.flags.contains(MmapFlags::MAP_FIXED);
         if fixed {
             // If `fixed`, addr must always be aligned to page size
             if !check_align(self.addr, state.config.page_size) {
-                return Err(linux_err!(EINVAL));
+                return linux_err!(EINVAL);
             }
             // addr must be in the user space
             if self.addr < state.config.ustart || self.addr + self.len >= state.config.uend {
-                return Err(linux_err!(ENOMEM));
+                return linux_err!(ENOMEM);
             }
         }
         // Align addr and len
@@ -168,7 +183,7 @@ impl Command<UserSpace> for Mmap {
             new_owned.push(new);
             state.segments = ValueList(new_owned);
             state.segments.sort_by(|a, b| a.left.cmp(&b.left));
-            Ok(addr)
+            addr as isize
         } else {
             // Find free intervals
             let mut cur_left = core::cmp::max(state.config.ustart, self.addr);
@@ -180,23 +195,22 @@ impl Command<UserSpace> for Mmap {
             }
             // Check if not reach upper bound
             if cur_left + len > state.config.uend {
-                return Err(linux_err!(ENOMEM));
+                return linux_err!(ENOMEM);
             }
             let new = Interval::new(cur_left, cur_left + len, self.prot.into());
             state.segments.push(new);
             state.segments.sort_by(|a, b| a.left.cmp(&b.left));
-            Ok(cur_left)
+            cur_left as isize
         }
     }
-
-    fn stringify(&self) -> String {
-        format!(
-            "mmap({},{},{},{})",
-            self.addr,
-            self.len,
-            self.prot.bits(),
-            self.flags.bits(),
-        )
+    fn serialize(&self) -> Vec<u8> {
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&SYSCALL_MMAP.to_ne_bytes());
+        buf.extend_from_slice(&self.addr.to_ne_bytes());
+        buf.extend_from_slice(&self.len.to_ne_bytes());
+        buf.extend_from_slice(&self.prot.bits().to_ne_bytes());
+        buf.extend_from_slice(&self.flags.bits().to_ne_bytes());
+        buf
     }
 }
 
@@ -213,14 +227,14 @@ pub struct Munmap {
 }
 
 impl Command<UserSpace> for Munmap {
-    fn execute(&self, state: &mut UserSpace) -> ExecutionResult {
+    fn execute(&self, state: &mut UserSpace) -> isize {
         // Check alignment
         if !check_align(self.addr, state.config.page_size) {
-            return Err(linux_err!(EINVAL));
+            return linux_err!(EINVAL);
         }
         // Check size
         if self.addr < state.config.ustart || self.addr + self.len >= state.config.uend {
-            return Err(linux_err!(EINVAL));
+            return linux_err!(EINVAL);
         }
         // Align to page size
         let addr = floor(self.addr, state.config.page_size);
@@ -232,10 +246,14 @@ impl Command<UserSpace> for Munmap {
             new_owned.extend(interval.subtract(&unmapped));
         }
         state.segments = ValueList(new_owned);
-        Ok(addr)
+        addr as isize
     }
-    fn stringify(&self) -> String {
-        format!("munmap({},{})", self.addr, self.len)
+    fn serialize(&self) -> Vec<u8> {
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&SYSCALL_MUNMAP.to_ne_bytes());
+        buf.extend_from_slice(&self.addr.to_ne_bytes());
+        buf.extend_from_slice(&self.len.to_ne_bytes());
+        buf
     }
 }
 
