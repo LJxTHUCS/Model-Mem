@@ -1,19 +1,23 @@
 use crate::MappingFlags;
+use core::fmt::Debug;
 use kernel_model_lib::{AbstractState, Ignored, Interval, ValueList};
 
 /// A state representing the memory layout of a user process.
-#[derive(Debug, AbstractState)]
+#[derive(AbstractState, Default)]
 pub struct UserSpace {
     pub segments: ValueList<Interval<MappingFlags>>,
     pub config: Ignored<UserSpaceConfig>,
 }
 
-impl Default for UserSpace {
-    fn default() -> Self {
-        Self {
-            segments: ValueList(vec![]),
-            config: Ignored(UserSpaceConfig::default()),
+impl Debug for UserSpace {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        for seg in self.segments.iter() {
+            f.write_fmt(format_args!(
+                "[{:#x}~{:#x}] {:?}\n",
+                seg.left, seg.right, seg.value
+            ))?;
         }
+        Ok(())
     }
 }
 

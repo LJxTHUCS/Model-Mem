@@ -1,6 +1,6 @@
 use super::{
     command::{Brk, Mmap, Munmap, Sbrk},
-    MmapFlags, ProtFlags, UserSpace,
+    UserSpace,
 };
 use kernel_model_lib::{Command, Commander, Error};
 use rand::{
@@ -32,31 +32,35 @@ pub struct MemRandCommander {
 impl MemRandCommander {
     /// Generate a random brk command.
     fn new_brk(&self, rng: &mut ThreadRng) -> Brk {
-        Brk {
-            addr: Uniform::new(self.brk_addr_range.0, self.brk_addr_range.1).sample(rng),
-        }
+        km_command::mem::Brk::new(
+            Uniform::new(self.brk_addr_range.0, self.brk_addr_range.1).sample(rng),
+        )
+        .into()
     }
     /// Generate a random sbrk command.
     fn new_sbrk(&self, rng: &mut ThreadRng) -> Sbrk {
-        Sbrk {
-            increment: Uniform::new(self.sbrk_incr_range.0, self.sbrk_incr_range.1).sample(rng),
-        }
+        km_command::mem::Sbrk::new(
+            Uniform::new(self.sbrk_incr_range.0, self.sbrk_incr_range.1).sample(rng),
+        )
+        .into()
     }
     /// Generate a random mmap command.
     fn new_mmap(&self, rng: &mut ThreadRng) -> Mmap {
-        Mmap {
-            addr: Uniform::new(self.mmap_addr_range.0, self.mmap_addr_range.1).sample(rng),
-            len: Uniform::new(self.mmap_len_range.0, self.mmap_len_range.1).sample(rng),
-            flags: MmapFlags::from_bits_truncate(rand::random::<u32>()),
-            prot: ProtFlags::from_bits_truncate(rand::random::<u8>()),
-        }
+        km_command::mem::Mmap::new(
+            Uniform::new(self.mmap_addr_range.0, self.mmap_addr_range.1).sample(rng),
+            Uniform::new(self.mmap_len_range.0, self.mmap_len_range.1).sample(rng),
+            km_command::mem::ProtFlags::from_bits_truncate(rand::random::<u8>()),
+            km_command::mem::MmapFlags::from_bits_truncate(rand::random::<u32>()),
+        )
+        .into()
     }
     /// Generate a random munmap command.
     fn new_munmap(&self, rng: &mut ThreadRng) -> Munmap {
-        Munmap {
-            addr: Uniform::new(self.mmap_addr_range.0, self.mmap_addr_range.1).sample(rng),
-            len: Uniform::new(self.mmap_len_range.0, self.mmap_len_range.1).sample(rng),
-        }
+        km_command::mem::Munmap::new(
+            Uniform::new(self.mmap_addr_range.0, self.mmap_addr_range.1).sample(rng),
+            Uniform::new(self.mmap_len_range.0, self.mmap_len_range.1).sample(rng),
+        )
+        .into()
     }
 }
 

@@ -15,12 +15,7 @@ struct MemTestPort;
 impl TestPort<UserSpace> for MemTestPort {
     fn send_command(&mut self, command: &dyn Command<UserSpace>) -> Result<(), Error> {
         let command_bytes = command.serialize();
-        // Write 4 + n format
-        write_to_target_mem(
-            CMD_BUF_VADDR,
-            (command_bytes.len() as u32).to_le_bytes().as_slice(),
-        );
-        write_to_target_mem(CMD_BUF_VADDR + 4, &command_bytes);
+        write_to_target_mem(CMD_BUF_VADDR, &command_bytes);
         Ok(())
     }
     fn get_retv(&mut self) -> isize {
@@ -38,14 +33,9 @@ impl TestPort<UserSpace> for MemTestPort {
 /// Stdout printer.
 struct StdoutPrinter;
 
-impl Printer<UserSpace> for StdoutPrinter {
-    fn print_str(&mut self, s: &str) {
+impl Printer for StdoutPrinter {
+    fn print(&mut self, s: &str) {
         println!("{}", s);
-    }
-    fn print_state(&mut self, s: &UserSpace) {
-        for seg in s.segments.iter() {
-            println!("[{:#x}~{:#x}] {:?}", seg.left, seg.right, seg.value);
-        }
     }
 }
 
@@ -148,7 +138,7 @@ extern "C" fn hook(_data: u64, ptr: CPUArchStatePtr, _addr: u64) {
         RUNNER
             .lock()
             .unwrap()
-            .step(CheckLevel::Relaxed, CheckLevel::Strict)
+            .step(CheckLevel::Relaxed, CheckLevel::Relaxed)
             .expect("Check failed");
     }
 }

@@ -12,3 +12,5 @@ libafl_qemu = { git = "https://github.com/nine-point-eight-p/LibAFL", branch = "
     "systemmode",
 ] } # TODO: Replace when RISCV is supported in original repo
 lazy_static = "1.5.0"
+postcard = "1.0.8"
+km-command = { path = "../km-command" }

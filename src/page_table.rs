@@ -7,7 +7,7 @@ const RV_PAGE_SIZE: usize = 4096;
 
 bitflags! {
     /// Riscv page table entry flags for sv32, sv39, sv48 and sv57.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
     pub struct RiscvPTEFlags: u8 {
         const VALID = 1 << 0;
         const READABLE = 1 << 1;
