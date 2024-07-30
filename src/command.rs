@@ -7,20 +7,33 @@ impl_serialize!(Brk, postcard::to_allocvec);
 
 impl Command<UserSpace> for Brk {
     fn execute(&self, state: &mut UserSpace) -> isize {
-        if self.addr > state.config.heap_bottom
-            && self.addr <= state.config.heap_bottom + state.config.max_heap_size
+        if self.addr < state.config.heap_bottom
+            || self.addr > state.config.heap_bottom + state.config.max_heap_size
         {
-            for seg in state.segments.iter_mut() {
-                if seg.right == ceil(state.config.heap_top, state.config.page_size) {
-                    seg.right = ceil(self.addr, state.config.page_size);
-                    break;
-                }
-            }
-            state.config.heap_top = self.addr;
-            0
-        } else {
-            linux_err!(ENOMEM)
+            return linux_err!(ENOMEM);
         }
+        // If heap segment exists
+        let mut has_heap_seg = false;
+        for seg in state.segments.iter_mut() {
+            if seg.right == ceil(state.config.heap_top, state.config.page_size) {
+                seg.right = ceil(self.addr, state.config.page_size);
+                has_heap_seg = true;
+                break;
+            }
+        }
+        // If heap segment does not exist, create one
+        if !has_heap_seg {
+            state.segments.push(Interval::new(
+                state.config.heap_bottom,
+                ceil(self.addr, state.config.page_size),
+                prot_flags_to_mapping_flags(
+                    ProtFlags::READ | ProtFlags::WRITE,
+                ),
+            ));
+            state.segments.sort_by(|a, b| a.left.cmp(&b.left));
+        }
+        state.config.heap_top = self.addr;
+        0
     }
 }
 
@@ -73,13 +86,13 @@ impl Command<UserSpace> for Mmap {
         if fixed {
             // Split overlapped intervals
             let new = Interval::new(addr, addr + len, prot_flags_to_mapping_flags(self.prot));
-            let mut new_owned = Vec::new();
+            let mut new_segments = Vec::new();
             // Split overlapped intervals and reinsert them
             for seg in state.segments.iter() {
-                new_owned.extend(seg.subtract(&new));
+                new_segments.extend(seg.subtract(&new));
             }
-            new_owned.push(new);
-            state.segments = ValueList(new_owned);
+            new_segments.push(new);
+            state.segments = ValueList(new_segments);
             state.segments.sort_by(|a, b| a.left.cmp(&b.left));
             addr as isize
         } else {
