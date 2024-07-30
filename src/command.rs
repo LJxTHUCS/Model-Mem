@@ -1,5 +1,5 @@
 use crate::{linux_err, MappingFlags, UserSpace};
-use kernel_model_lib::{impl_serialize, model_command, Command, Interval, Serialize, ValueList};
+use km_checker::{impl_serialize, model_command, Command, Interval, Serialize, ValueList};
 use km_command::mem::{MmapFlags, ProtFlags};
 
 model_command!(km_command::mem, Brk);

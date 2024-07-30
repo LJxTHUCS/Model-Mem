@@ -2,7 +2,7 @@ use super::{
     command::{Brk, Mmap, Munmap, Sbrk},
     UserSpace,
 };
-use kernel_model_lib::{Command, Commander, Error};
+use km_checker::{Command, Commander, Error};
 use rand::{
     distributions::{Distribution, Uniform},
     rngs::ThreadRng,

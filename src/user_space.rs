@@ -1,6 +1,6 @@
 use crate::MappingFlags;
 use core::fmt::Debug;
-use kernel_model_lib::{AbstractState, Ignored, Interval, ValueList};
+use km_checker::{AbstractState, Ignored, Interval, ValueList};
 
 /// A state representing the memory layout of a user process.
 #[derive(AbstractState, Default)]

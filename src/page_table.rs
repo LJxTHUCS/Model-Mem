@@ -1,6 +1,6 @@
 use bitflags::bitflags;
 use core::mem::size_of;
-use kernel_model_lib::{AbstractState, Interval};
+use km_checker::{AbstractState, Interval};
 
 /// Riscv page size is 4KB;
 const RV_PAGE_SIZE: usize = 4096;
