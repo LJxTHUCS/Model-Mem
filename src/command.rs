@@ -1,9 +1,12 @@
 use crate::{linux_err, MappingFlags, UserSpace};
-use km_checker::{impl_serialize, model_command, Command, Interval, Serialize, ValueList};
+use km_checker::{
+    impl_to_bytes, model_command,
+    state::{Interval, ValueList},
+    Command,
+};
 use km_command::mem::{MmapFlags, ProtFlags};
 
 model_command!(km_command::mem, Brk);
-impl_serialize!(Brk, postcard::to_allocvec);
 
 impl Command<UserSpace> for Brk {
     fn execute(&self, state: &mut UserSpace) -> isize {
@@ -26,19 +29,17 @@ impl Command<UserSpace> for Brk {
             state.segments.push(Interval::new(
                 state.config.heap_bottom,
                 ceil(self.addr, state.config.page_size),
-                prot_flags_to_mapping_flags(
-                    ProtFlags::READ | ProtFlags::WRITE,
-                ),
+                prot_flags_to_mapping_flags(ProtFlags::READ | ProtFlags::WRITE),
             ));
             state.segments.sort_by(|a, b| a.left.cmp(&b.left));
         }
         state.config.heap_top = self.addr;
         0
     }
+    impl_to_bytes!();
 }
 
 model_command!(km_command::mem, Sbrk);
-impl_serialize!(Sbrk, postcard::to_allocvec);
 
 impl Command<UserSpace> for Sbrk {
     fn execute(&self, state: &mut UserSpace) -> isize {
@@ -54,10 +55,10 @@ impl Command<UserSpace> for Sbrk {
             old_brk as isize
         }
     }
+    impl_to_bytes!();
 }
 
 model_command!(km_command::mem, Mmap);
-impl_serialize!(Mmap, postcard::to_allocvec);
 
 impl Command<UserSpace> for Mmap {
     fn execute(&self, state: &mut UserSpace) -> isize {
@@ -118,6 +119,7 @@ impl Command<UserSpace> for Mmap {
             cur_left as isize
         }
     }
+    impl_to_bytes!();
 }
 
 fn prot_flags_to_mapping_flags(prot: ProtFlags) -> MappingFlags {
@@ -135,7 +137,6 @@ fn prot_flags_to_mapping_flags(prot: ProtFlags) -> MappingFlags {
 }
 
 model_command!(km_command::mem, Munmap);
-impl_serialize!(Munmap, postcard::to_allocvec);
 
 impl Command<UserSpace> for Munmap {
     fn execute(&self, state: &mut UserSpace) -> isize {
@@ -159,6 +160,7 @@ impl Command<UserSpace> for Munmap {
         state.segments = ValueList(new_owned);
         addr as isize
     }
+    impl_to_bytes!();
 }
 
 /// Check if `value` is aligned to `alignment`.

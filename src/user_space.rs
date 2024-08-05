@@ -1,6 +1,9 @@
 use crate::MappingFlags;
 use core::fmt::Debug;
-use km_checker::{AbstractState, Ignored, Interval, ValueList};
+use km_checker::{
+    state::{Ignored, Interval, ValueList},
+    AbstractState,
+};
 
 /// A state representing the memory layout of a user process.
 #[derive(AbstractState, Default)]
@@ -32,20 +35,16 @@ impl UserSpace {
 
 #[derive(Debug, Clone, Default)]
 pub struct UserSpaceConfig {
+    /// Page size of the system.
+    pub page_size: usize,
     /// Start address of user space
     pub ustart: usize,
-    /// Sperator of .text and .rodata
-    pub text_rodata_sep: usize,
-    /// Seper of .rodata and .data
-    pub rodata_rwdata_sep: usize,
+    /// End address of user space
+    pub uend: usize,
     /// Heap bottom
     pub heap_bottom: usize,
     /// Heap top
     pub heap_top: usize,
-    /// End address of user space
-    pub uend: usize,
-    /// Page size of the system.
-    pub page_size: usize,
     /// Max heap size
     pub max_heap_size: usize,
 }

@@ -47,10 +47,14 @@ impl MemRandCommander {
     /// Generate a random mmap command.
     fn new_mmap(&self, rng: &mut ThreadRng) -> Mmap {
         km_command::mem::Mmap::new(
-            Uniform::new(self.mmap_addr_range.0, self.mmap_addr_range.1).sample(rng),
+            Uniform::new(self.mmap_addr_range.0 / 4096, self.mmap_addr_range.1 / 4096).sample(rng)
+                * 4096,
             Uniform::new(self.mmap_len_range.0, self.mmap_len_range.1).sample(rng),
-            km_command::mem::ProtFlags::from_bits_truncate(rand::random::<u8>()),
-            km_command::mem::MmapFlags::from_bits_truncate(rand::random::<u32>()),
+            km_command::mem::ProtFlags::from_bits_truncate(rand::random::<u8>())
+                | km_command::mem::ProtFlags::READ,
+            km_command::mem::MmapFlags::from_bits_truncate(rand::random::<u32>())
+                | km_command::mem::MmapFlags::MAP_FIXED
+                | km_command::mem::MmapFlags::MAP_ANONYMOUS,
         )
         .into()
     }

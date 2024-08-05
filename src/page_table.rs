@@ -1,6 +1,6 @@
 use bitflags::bitflags;
 use core::mem::size_of;
-use km_checker::{AbstractState, Interval};
+use km_checker::{state::Interval, AbstractState, ReadTargetMem};
 
 /// Riscv page size is 4KB;
 const RV_PAGE_SIZE: usize = 4096;
@@ -107,12 +107,6 @@ impl RiscvPTE for Sv57PTE {
     }
 }
 
-/// A trait for generic mem reading.
-pub trait ReadMem {
-    /// Read memory from a physical address.
-    fn read(&self, paddr: u64, buf: &mut [u8]);
-}
-
 /// Virtual page: a virtual page number and its mapping flags.
 #[derive(Debug)]
 pub struct VirtPage {
@@ -120,49 +114,19 @@ pub struct VirtPage {
     flags: RiscvPTEFlags,
 }
 
-/// Read Sv39 page table and collect all virtual pages into a vector
-pub fn read_sv39_page_table<R>(root_addr: u64, reader: &R) -> Vec<VirtPage>
-where
-    R: ReadMem,
-{
-    let mut vpages = Vec::new();
-    read_page_table_recursive(root_addr as *const Sv39PTE, reader, 0, 2, &mut vpages);
-    vpages
-}
-
-/// Read Sv48 page table and collect all virtual pages into a vector
-pub fn read_sv48_page_table<R>(root_addr: u64, reader: &R) -> Vec<VirtPage>
-where
-    R: ReadMem,
-{
-    let mut vpages = Vec::new();
-    read_page_table_recursive(root_addr as *const Sv48PTE, reader, 0, 3, &mut vpages);
-    vpages
-}
-
-/// Read Sv57 page table and collect all virtual pages into a vector
-pub fn read_sv57_page_table<R>(root_addr: u64, reader: &R) -> Vec<VirtPage>
-where
-    R: ReadMem,
-{
-    let mut vpages = Vec::new();
-    read_page_table_recursive(root_addr as *const Sv57PTE, reader, 0, 4, &mut vpages);
-    vpages
-}
-
 /// Read page table recursively. Same logic shared by Sv39, Sv48 and Sv57.
 fn read_page_table_recursive<T, R>(
     page: *const T,
-    reader: &R,
+    reader: &mut R,
     vpn: u64,
     level: u64,
     vpages: &mut Vec<VirtPage>,
 ) where
     T: RiscvPTE,
-    R: ReadMem,
+    R: ReadTargetMem,
 {
     let mut buf = [0u8; RV_PAGE_SIZE];
-    reader.read(page as u64, &mut buf);
+    reader.read_phys(page as usize, &mut buf);
     let page = unsafe {
         core::slice::from_raw_parts(buf.as_ptr() as *const T, RV_PAGE_SIZE / size_of::<T>())
     };
@@ -188,6 +152,25 @@ fn read_page_table_recursive<T, R>(
     }
 }
 
+/// Read RISC-V page table.
+pub fn read_rv_page_table<R>(satp: u64, reader: &mut R) -> Vec<VirtPage>
+where
+    R: ReadTargetMem,
+{
+    const MASK: u64 = 0x0fff_ffff_ffff;
+    const PAGE_SIZE: u64 = 4096;
+    let root_addr = (satp & MASK) * PAGE_SIZE;
+    let mode = satp >> 60;
+    let mut vpages = Vec::new();
+    match mode {
+        8 => read_page_table_recursive(root_addr as *const Sv39PTE, reader, 0, 2, &mut vpages),
+        9 => read_page_table_recursive(root_addr as *const Sv48PTE, reader, 0, 3, &mut vpages),
+        10 => read_page_table_recursive(root_addr as *const Sv57PTE, reader, 0, 4, &mut vpages),
+        _ => panic!("Unsupported mode: {}", mode),
+    }
+    vpages
+}
+
 fn mask_flags(flags: RiscvPTEFlags) -> RiscvPTEFlags {
     flags & !(RiscvPTEFlags::DIRTY | RiscvPTEFlags::ACCESSED)
 }
@@ -195,7 +178,7 @@ fn mask_flags(flags: RiscvPTEFlags) -> RiscvPTEFlags {
 /// Segment virtual pages into contiguous intervals.
 ///
 /// Note: `vpages` read from page table is already sorted by VPN.
-pub fn segment_vpages(vpages: &Vec<VirtPage>) -> Vec<Interval<RiscvPTEFlags>> {
+pub fn segment_vpages(vpages: &[VirtPage]) -> Vec<Interval<RiscvPTEFlags>> {
     let mut intervals = Vec::new();
     let mut i = 0;
     while i < vpages.len() {

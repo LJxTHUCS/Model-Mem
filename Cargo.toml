@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-km-checker = { path = "../framework/km-checker" }
-km-command = { path = "../framework/km-command" }
+km-checker = { path = "../framework/km-checker", features = ["derive"] }
+km-command = { path = "../framework/km-command", features = ["checker", "postcard"] }
 rand = "0.8.5"
 bitflags = "2.6.0"
 postcard = { version = "1.0.8", features = ["alloc"] }
